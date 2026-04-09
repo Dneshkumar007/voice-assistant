@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Voice Assistant</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 620px;
+      padding: 2rem 1.5rem;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #a78bfa;
+      margin-bottom: 2rem;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Orb ── */
+    .orb-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .orb {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: #1e1e2e;
+      border: 2px solid #4c4c6d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.3s;
+      position: relative;
+    }
+
+    .orb:hover { transform: scale(1.05); }
+
+    .orb.listening {
+      border-color: #34d399;
+      animation: orbPulse 1.2s ease-in-out infinite;
+    }
+
+    .orb.thinking  { border-color: #a78bfa; animation: orbPulse 1.6s ease-in-out infinite; }
+    .orb.speaking  { border-color: #60a5fa; animation: orbPulse 0.9s ease-in-out infinite; }
+
+    @keyframes orbPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(167,139,250,0.3); }
+      50%       { box-shadow: 0 0 0 24px rgba(167,139,250,0); }
+    }
+
+    .orb svg { width: 52px; height: 52px; }
+
+    /* ── Status ── */
+    .status {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 1.5rem;
+      min-height: 20px;
+    }
+
+    /* ── Chat messages ── */
+    .messages {
+      background: #16162a;
+      border: 1px solid #2a2a45;
+      border-radius: 12px;
+      padding: 1rem;
+      min-height: 200px;
+      max-height: 320px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
+    .msg {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      max-width: 85%;
+    }
+
+    .msg.user      { background: #2a2a45; align-self: flex-end; color: #ccc; }
+    .msg.assistant { background: #1a3a2a; border: 1px solid #2d6a4f; color: #7ee8a2; align-self: flex-start; }
+
+    /* ── Live transcript ── */
+    .transcript {
+      background: #16162a;
+      border: 1px solid #2a2a45;
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: #888;
+      font-style: italic;
+      min-height: 48px;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: #16162a;
+      border: 1px solid #2a2a45;
+      border-radius: 8px;
+      color: #eee;
+      font-size: 0.9rem;
+      padding: 0 14px;
+      height: 44px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus { border-color: #a78bfa; }
+
+    button {
+      height: 44px;
+      padding: 0 18px;
+      border: 1px solid #3a3a5c;
+      border-radius: 8px;
+      background: transparent;
+      color: #ccc;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button:hover  { background: #1e1e35; }
+    button:active { transform: scale(0.97); }
+
+    button.danger { border-color: #f97316; color: #f97316; }
+    button.danger:hover { background: #2a1500; }
+
+    .row2 {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    select {
+      flex: 1;
+      height: 40px;
+      background: #16162a;
+      border: 1px solid #2a2a45;
+      border-radius: 8px;
+      color: #ccc;
+      font-size: 0.85rem;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+
+    /* ── Typing dots ── */
+    .dots span {
+      animation: blink 1.2s infinite;
+      opacity: 0;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 0; }
+      50%       { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🎙️ Voice Assistant</h1>
+
+  <div class="orb-wrap">
+    <div class="orb" id="orb" onclick="toggleListen()" title="Click to speak">
+      <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Mic body -->
+        <rect x="21" y="8" width="10" height="22" rx="5" fill="#a78bfa"/>
+        <!-- Mic arc -->
+        <path d="M14 26c0 6.627 5.373 12 12 12s12-5.373 12-12"
+              stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Stand -->
+        <line x1="26" y1="38" x2="26" y2="44" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="19" y1="44" x2="33" y2="44" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <p class="status" id="status">Click the mic to speak</p>
+
+  <div class="messages" id="messages">
+    <div class="msg assistant">
+      Hi! I'm your voice assistant. Click the mic or type below to begin.
+    </div>
+  </div>
+
+  <div class="transcript" id="transcript">Waiting for speech…</div>
+
+  <div class="controls">
+    <input type="text" id="textInput" placeholder="Or type your message…"
+           onkeydown="if(event.key==='Enter') sendText()"/>
+    <button onclick="sendText()">Send</button>
+  </div>
+
+  <div class="row2">
+    <select id="voiceSelect"><option value="">Default voice</option></select>
+    <button id="stopBtn" class="danger" onclick="stopSpeaking()" style="display:none">Stop</button>
+    <button onclick="clearChat()">Clear</button>
+  </div>
+</div>
+
+<script>
+  // ─── Config ────────────────────────────────────────────────
+  const API_KEY = 'console.anthropic.com'; // <-- Replace this
+  const MODEL   = 'claude-sonnet-4-20250514';
+  const SYSTEM  = `You are a friendly, concise voice assistant.
+Keep replies to 1–3 sentences. No markdown or bullet points — your output will be spoken aloud.`;
+
+  // ─── State ─────────────────────────────────────────────────
+  let history      = [];
+  let isListening  = false;
+  let isSpeaking   = false;
+  let voices       = [];
+  let recognition  = null;
+
+  // ─── DOM refs ──────────────────────────────────────────────
+  const orb        = document.getElementById('orb');
+  const statusEl   = document.getElementById('status');
+  const messagesEl = document.getElementById('messages');
+  const transcript = document.getElementById('transcript');
+  const voiceSel   = document.getElementById('voiceSelect');
+  const stopBtn    = document.getElementById('stopBtn');
+
+  // ─── Voices ────────────────────────────────────────────────
+  function loadVoices() {
+    voices = speechSynthesis.getVoices();
+    voiceSel.innerHTML = '<option value="">Default voice</option>';
+    voices.forEach((v, i) => {
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = `${v.name} (${v.lang})`;
+      voiceSel.appendChild(o);
+    });
+  }
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+
+  // ─── Speech Recognition setup ──────────────────────────────
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (SR) {
+    recognition = new SR();
+    recognition.continuous    = false;
+    recognition.interimResults = true;
+    recognition.lang          = 'en-US';
+
+    recognition.onstart = () => {
+      isListening = true;
+      setOrb('listening');
+      setStatus('Listening…');
+      transcript.textContent = '';
+    };
+
+    recognition.onresult = (e) => {
+      let interim = '', final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        e.results[i].isFinal
+          ? (final   += e.results[i][0].transcript)
+          : (interim += e.results[i][0].transcript);
+      }
+      transcript.textContent = final || interim;
+      if (final) {
+        recognition.stop();
+        handleMessage(final.trim());
+      }
+    };
+
+    recognition.onerror = (e) => {
+      isListening = false;
+      setOrb('idle');
+      setStatus(e.error === 'not-allowed'
+        ? 'Microphone access denied.'
+        : e.error === 'no-speech'
+        ? 'No speech detected. Try again.'
+        : 'Error: ' + e.error);
+    };
+
+    recognition.onend = () => { isListening = false; };
+  } else {
+    setStatus('Speech recognition not supported. Use text input.');
+  }
+
+  // ─── Orb state ─────────────────────────────────────────────
+  function setOrb(state) {
+    orb.className = 'orb' + (state !== 'idle' ? ' ' + state : '');
+    const color = { listening: '#34d399', thinking: '#a78bfa', speaking: '#60a5fa', idle: '#a78bfa' }[state];
+    orb.querySelectorAll('rect, path, line').forEach(el => {
+      el.setAttribute('fill',   color);
+      el.setAttribute('stroke', color);
+    });
+  }
+
+  function setStatus(txt) { statusEl.textContent = txt; }
+
+  // ─── Toggle listen ─────────────────────────────────────────
+  function toggleListen() {
+    if (isSpeaking)   { stopSpeaking(); return; }
+    if (!recognition) { document.getElementById('textInput').focus(); return; }
+    if (isListening)  { recognition.stop(); return; }
+    try { recognition.start(); } catch (_) {}
+  }
+
+  // ─── Add bubble ────────────────────────────────────────────
+  function addBubble(role, text) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    if (text === '__thinking__') {
+      div.id = 'thinking';
+      div.innerHTML = '<span class="dots"><span>•</span><span>•</span><span>•</span></span>';
+    } else {
+      div.textContent = text;
+    }
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  // ─── Core message handler ──────────────────────────────────
+  async function handleMessage(text) {
+    if (!text) return;
+    transcript.textContent = text;
+    addBubble('user', text);
+    history.push({ role: 'user', content: text });
+
+    setOrb('thinking');
+    setStatus('Thinking…');
+    addBubble('assistant', '__thinking__');
+
+    try {
+      const res = await fetch('http://localhost:3000/chat',  {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({ model: MODEL, max_tokens: 1000, system: SYSTEM, messages: history })
+      });
+
+      const data  = await res.json();
+      const reply = data.content?.find(b => b.type === 'text')?.text
+                    || 'Sorry, I could not get a response.';
+
+      document.getElementById('thinking')?.remove();
+      addBubble('assistant', reply);
+      history.push({ role: 'assistant', content: reply });
+      speak(reply);
+
+    } catch (err) {
+      document.getElementById('thinking')?.remove();
+      addBubble('assistant', 'Connection error. Please try again.');
+      setOrb('idle');
+      setStatus('Error — check your API key and network.');
+      console.error(err);
+    }
+  }
+
+  // ─── Text input ────────────────────────────────────────────
+  function sendText() {
+    const inp = document.getElementById('textInput');
+    const txt = inp.value.trim();
+    if (!txt) return;
+    inp.value = '';
+    handleMessage(txt);
+  }
+
+  // ─── Text-to-Speech ────────────────────────────────────────
+  function speak(text) {
+    speechSynthesis.cancel();
+    const utter   = new SpeechSynthesisUtterance(text);
+    const vi      = voiceSel.value;
+    if (vi !== '' && voices[vi]) utter.voice = voices[vi];
+    utter.rate    = 1.0;
+    utter.pitch   = 1.0;
+
+    utter.onstart = () => {
+      isSpeaking = true;
+      setOrb('speaking');
+      setStatus('Speaking… (click orb or Stop to interrupt)');
+      stopBtn.style.display = 'inline-block';
+    };
+
+    const done = () => {
+      isSpeaking = false;
+      stopBtn.style.display = 'none';
+      setOrb('idle');
+      setStatus('Click the mic to speak');
+    };
+
+    utter.onend   = done;
+    utter.onerror = done;
+    speechSynthesis.speak(utter);
+  }
+
+  function stopSpeaking() {
+    speechSynthesis.cancel();
+    isSpeaking = false;
+    stopBtn.style.display = 'none';
+    setOrb('idle');
+    setStatus('Click the mic to speak');
+  }
+
+  // ─── Clear chat ────────────────────────────────────────────
+  function clearChat() {
+    stopSpeaking();
+    history = [];
+    messagesEl.innerHTML =
+      '<div class="msg assistant">Hi! I\'m your voice assistant. Click the mic or type below to begin.</div>';
+    transcript.textContent = 'Waiting for speech…';
+    setOrb('idle');
+    setStatus('Click the mic to speak');
+  }
+</script>
+</body>
+</html>
