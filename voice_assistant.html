@@ -176,6 +176,8 @@
       cursor: pointer;
     }
 
+    #stopBtn { display: none; }
+
     /* ── Typing dots ── */
     .dots span {
       animation: blink 1.2s infinite;
@@ -228,9 +230,9 @@
   </div>
 
   <div class="row2">
-    <select id="voiceSelect"><option value="">Default voice</option></select>
-    <button id="stopBtn" class="danger" onclick="stopSpeaking()" style="display:none">Stop</button>
-    <button onclick="clearChat()">Clear</button>
+    <select id="voiceSelect" title="Select voice"><option value="">Default voice</option></select>
+    <button id="stopBtn" class="danger" onclick="stopSpeaking()">Stop</button>
+    <button onclick="clearChat()">Erase Chat</button>
   </div>
 </div>
 
